@@ -1,0 +1,42 @@
+# Publishes Udél T'boli to GitHub Pages.
+# It unpacks the .zip in the repository, puts your real GitHub username in place of USERNAME,
+# and publishes the site. It runs every time you upload or change a file.
+name: Publish Udel Tboli
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack the site
+        run: |
+          ZIP=$(ls *.zip | head -n 1)
+          unzip -q "$ZIP" -d unpacked
+          INDEX=$(find unpacked -name index.html -not -path '*/w/*' -not -path '*/a-z/*' | awk '{ print length, $0 }' | sort -n | head -n 1 | cut -d' ' -f2-)
+          SITE=$(dirname "$INDEX")
+          rm -f "$SITE/HOW-TO-PUBLISH.md" "$SITE/publish.yml"
+          cp google*.html "$SITE/" 2>/dev/null || true
+          OWNER=$(echo "${{ github.repository_owner }}" | tr 'A-Z' 'a-z')
+          BASE="https://$OWNER.github.io/${{ github.event.repository.name }}/"
+          grep -rl 'https://USERNAME.github.io/udel-tboli/' "$SITE" | xargs -r sed -i "s#https://USERNAME.github.io/udel-tboli/#$BASE#g"
+          echo "SITE=$SITE" >> "$GITHUB_ENV"
+          echo "Publishing to $BASE"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.SITE }}
+      - id: deployment
+        uses: actions/deploy-pages@v4
