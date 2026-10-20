@@ -24,9 +24,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Unpack the site
         run: |
-          if [ -f udel-tboli-site.zip ]; then ZIP=udel-tboli-site.zip; else ZIP=$(ls *.zip | grep -vi sounds | head -n 1); fi
-          echo "Site zip: $ZIP"
-          unzip -q "$ZIP" -d unpacked
+          # the site can come in parts (udel-tboli-site-1.zip, udel-tboli-site-2.zip ...): unpack every part
+          PARTS=$(ls udel-tboli-site-[0-9]*.zip 2>/dev/null || true)
+          if [ -z "$PARTS" ]; then
+            if [ -f udel-tboli-site.zip ]; then PARTS=udel-tboli-site.zip; else PARTS=$(ls *.zip | grep -vi sounds | head -n 1); fi
+          fi
+          for ZIP in $PARTS; do
+            echo "Site zip: $ZIP"
+            unzip -o -q "$ZIP" -d unpacked
+          done
+          echo "Site files: $(find unpacked -type f | wc -l)"
           INDEX=$(find unpacked -name index.html -not -path '*/w/*' -not -path '*/a-z/*' | awk '{ print length, $0 }' | sort -n | head -n 1 | cut -d' ' -f2-)
           SITE=$(dirname "$INDEX")
           rm -f "$SITE/HOW-TO-PUBLISH.md" "$SITE/publish.yml"
